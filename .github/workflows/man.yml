@@ -19,7 +19,7 @@ jobs:
         sudo apt-get install -y openssh-server curl build-essential
         curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
         
-    - name: Install Bore CLI using Cargo
+    - name: Install Bore CLI
       run: |
         source $HOME/.cargo/env
         cargo install bore-cli
@@ -35,15 +35,14 @@ jobs:
         ChallengeResponseAuthentication no
         PermitRootLogin yes
         StrictModes no
-        AllowUsers *
         UsePAM no
         X11Forwarding yes
         PrintMotd yes
-        Subsystem sftp /usr/lib/openssh/sftp-server
-        # Configurações para manter a conexão ativa
+        # Anti-Timeout: Mantém a conexão viva mesmo sem atividade
         TCPKeepAlive yes
         ClientAliveInterval 30
         ClientAliveCountMax 999
+        Subsystem sftp /usr/lib/openssh/sftp-server
         EOF
         
     - name: Create Users with Empty Passwords
@@ -60,38 +59,41 @@ jobs:
         sudo ssh-keygen -A
         sudo systemctl start ssh
         
-    - name: Start Bore Tunnel and Monitor
+    - name: Start Bore Tunnel and Monitor (Auto-Recovery)
       run: |
         source $HOME/.cargo/env
-        echo "🚀 Iniciando túnel Bore com monitoramento..."
-        
-        # Loop para garantir que o túnel continue rodando se cair
+        echo "🚀 Iniciando Bore com monitoramento ativo..."
+
+        # Loop em background para manter o túnel vivo
         (
           while true; do
-            echo "--- Iniciando instância do Bore ---"
+            echo "--- Tentando conectar ao bore.pub ---"
+            # Se você quiser tentar uma porta específica, adicione '--port 55945' no final da linha abaixo
             $HOME/.cargo/bin/bore local 22 --to bore.pub > bore_output.txt 2>&1
-            echo "⚠️ Bore parou. Reiniciando em 5 segundos..."
+            echo "⚠️ Bore desconectado. Reiniciando em 5 segundos..."
             sleep 5
           done
         ) &
         
-        # Espera inicial para gerar o output
-        sleep 15
+        # Espera inicial para o túnel subir
+        sleep 10
         
+        # Loop principal para manter o Job vivo e mostrar as portas atualizadas
         echo "========================================"
-        echo "🎯 INFORMAÇÕES DE CONEXÃO:"
-        cat bore_output.txt
-        TUNNEL_PORT=$(grep -oE 'bore\.pub:[0-9]+' bore_output.txt | cut -d: -f2)
-        echo ""
-        echo "Comando para conectar:"
-        echo "ssh topuser@bore.pub -p $TUNNEL_PORT"
+        echo "🎯 SERVIDOR SSH INICIADO"
         echo "========================================"
         
-        # Mantém o job vivo e mostra logs para evitar timeout do GitHub
-        echo "🔄 Mantendo servidor ativo (Max 6h)..."
-        i=0
-        while [ $i -lt 360 ]; do
-          echo "Status OK - $(date) - Porta: $TUNNEL_PORT"
+        # Monitora o log e avisa se a porta mudar
+        while true; do
+          if [ -f bore_output.txt ]; then
+            CURRENT_PORT=$(grep -oE 'bore\.pub:[0-9]+' bore_output.txt | cut -d: -f2 | tail -n 1)
+            if [ ! -z "$CURRENT_PORT" ]; then
+              echo "✅ STATUS: ONLINE | PORTA: $CURRENT_PORT | $(date)"
+              echo "👉 COMANDO: ssh topuser@bore.pub -p $CURRENT_PORT"
+            else
+              echo "⏳ Aguardando conexão do Bore..."
+            fi
+          fi
+          # O log a cada 60s evita que o GitHub encerre o job por inatividade
           sleep 60
-          i=$((i+1))
         done
