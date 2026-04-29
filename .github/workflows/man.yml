@@ -1,0 +1,97 @@
+name: Anonymous Passwordless SSH Server with Bore.pub
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+
+jobs:
+  ssh-server:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v3
+    
+    - name: Install SSH Server and Rust
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y openssh-server curl build-essential
+        curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+        
+    - name: Install Bore CLI using Cargo
+      run: |
+        source $HOME/.cargo/env
+        cargo install bore-cli
+        
+    - name: Configure Passwordless SSH Server
+      run: |
+        sudo tee /etc/ssh/sshd_config > /dev/null <<EOF
+        Port 22
+        Protocol 2
+        PasswordAuthentication yes
+        PermitEmptyPasswords yes
+        PubkeyAuthentication no
+        ChallengeResponseAuthentication no
+        PermitRootLogin yes
+        StrictModes no
+        AllowUsers *
+        UsePAM no
+        X11Forwarding yes
+        PrintMotd yes
+        Subsystem sftp /usr/lib/openssh/sftp-server
+        # Configurações para manter a conexão ativa
+        TCPKeepAlive yes
+        ClientAliveInterval 30
+        ClientAliveCountMax 999
+        EOF
+        
+    - name: Create Users with Empty Passwords
+      run: |
+        sudo passwd -d root
+        sudo useradd -m -s /bin/bash topuser || true
+        sudo passwd -d topuser
+        sudo usermod -aG sudo topuser
+        echo 'topuser ALL=(ALL) NOPASSWD: ALL' | sudo tee /etc/sudoers.d/topuser
+        sudo chmod 440 /etc/sudoers.d/topuser
+        
+    - name: Start SSH Service
+      run: |
+        sudo ssh-keygen -A
+        sudo systemctl start ssh
+        
+    - name: Start Bore Tunnel and Monitor
+      run: |
+        source $HOME/.cargo/env
+        echo "🚀 Iniciando túnel Bore com monitoramento..."
+        
+        # Loop para garantir que o túnel continue rodando se cair
+        (
+          while true; do
+            echo "--- Iniciando instância do Bore ---"
+            $HOME/.cargo/bin/bore local 22 --to bore.pub > bore_output.txt 2>&1
+            echo "⚠️ Bore parou. Reiniciando em 5 segundos..."
+            sleep 5
+          done
+        ) &
+        
+        # Espera inicial para gerar o output
+        sleep 15
+        
+        echo "========================================"
+        echo "🎯 INFORMAÇÕES DE CONEXÃO:"
+        cat bore_output.txt
+        TUNNEL_PORT=$(grep -oE 'bore\.pub:[0-9]+' bore_output.txt | cut -d: -f2)
+        echo ""
+        echo "Comando para conectar:"
+        echo "ssh topuser@bore.pub -p $TUNNEL_PORT"
+        echo "========================================"
+        
+        # Mantém o job vivo e mostra logs para evitar timeout do GitHub
+        echo "🔄 Mantendo servidor ativo (Max 6h)..."
+        i=0
+        while [ $i -lt 360 ]; do
+          echo "Status OK - $(date) - Porta: $TUNNEL_PORT"
+          sleep 60
+          i=$((i+1))
+        done
