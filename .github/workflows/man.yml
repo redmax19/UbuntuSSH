@@ -59,14 +59,7 @@ jobs:
             libzstd-dev linux-modules-extra-$(uname -r) lld protobuf-compiler webp \
             curl xxd patchelf flex bison libarchive-tools build-essential pcre2-utils libssl-dev
           sudo modprobe erofs f2fs
-
-    - name: Set up JDK 21
-      uses: actions/setup-java@v5
-      with:
-          distribution: temurin
-          java-version: 21
-          cache: gradle
-    
+ 
     - name: Install SSH Server and Rust
       run: |
         sudo apt-get update
