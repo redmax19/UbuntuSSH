@@ -25,8 +25,8 @@ jobs:
         echo "deb https://ngrok-agent.s3.amazonaws.com buster main" | sudo tee /etc/apt/sources.list.d/ngrok.list
         sudo apt-get update && sudo apt-get install ngrok -y
         
-        # 4. Conecta o Ngrok usando seu token diretamente no código
-        ngrok config add-authtoken "COLOQUE_SEU_TOKEN_AQUI"
+        # 4. Conecta o Ngrok usando o seu token do print
+        ngrok config add-authtoken "3DoOMSjoIN9QjrsjcmzOcJ0H5Fh_4rngMUbucDP3fbaShatzt"
         
         # 5. Abre o túnel na porta 22 (SSH)
         ngrok tcp 22 --log=stdout > /dev/null &
