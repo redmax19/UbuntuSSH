@@ -1,42 +1,44 @@
-name: SSH Sem Chaves e Sem Cadastro
+name: SSH 100% Nativo e Simples
 
 on:
   workflow_dispatch:
 
 jobs:
-  ssh-gratis:
+  ssh-nativo:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Configurar SSH e Criar Túnel Grátis
+    - name: Iniciar Servidor SSH e Conectar
       run: |
         # 1. Define a senha padrão '1234' para o usuário 'runner'
         echo "runner:1234" | sudo chpasswd
         
-        # 2. Configura o SSH para aceitar conexão por senha comum
+        # 2. Configura o SSH do Ubuntu para aceitar conexão por senha comum
         sudo sed -i 's/PasswordAuthentication no/PasswordAuthentication yes/' /etc/ssh/sshd_config
         sudo sed -i 's/PubkeyAuthentication yes/PubkeyAuthentication no/' /etc/ssh/sshd_config
         sudo systemctl restart ssh
 
-        # 3. Baixa o cliente do LocalXpose (alternativa livre ao Ngrok)
-        curl -sL https://localxpose.io/ext/loclx-linux-amd64.zip -o loclx.zip
-        unzip -q loclx.zip
-        chmod +x loclx
+        echo "=================================================================="
+        echo "AGUARDE 5 SEGUNDOS PARA GERAR O SEU COMANDO DO TERMUX..."
+        echo "=================================================================="
         
-        # 4. Inicia o túnel de graça na porta 22 (SSH)
-        ./loclx tunnel tcp --to 22 > localxpose.log &
+        # 3. Cria o túnel reverso usando o próprio comando SSH do sistema
+        ssh -o StrictHostKeyChecking=no -R 80:localhost:22 ssh.localhost.run 2>&1 | tee tunnel.log &
         
-        # Aguarda o túnel abrir completamente
         sleep 8
+        
+        # 4. Pega o endereço gerado e formata o comando certinho para você
+        ENDERECO=$(grep -oE '[a-zA-Z0-9:-]+\.localhost\.run' tunnel.log | head -n 1)
+        PORTA=$(echo $ENDERECO | cut -d':' -f2)
+        HOST=$(echo $ENDERECO | cut -d':' -f1)
         
         echo "=================================================================="
         echo "COPIE E COLE O COMANDO ABAIXO NO SEU TERMUX:"
         echo "=================================================================="
-        # Extrai o endereço gerado do arquivo de log
-        grep -oE 'us.loclx.io:[0-9]+|eu.loclx.io:[0-9]+|ap.loclx.io:[0-9]+' localxpose.log | head -n 1 | sed 's/\(.*\):\(.*\)/ssh runner@\1 -p \2/'
+        echo "ssh runner@$HOST -p $PORTA"
         echo "=================================================================="
         echo "QUANDO PEDIR A SENHA, DIGITE: 1234"
         echo "=================================================================="
         
-        # Mantém a máquina aberta por 6 horas
+        # Mantém vivo por 6 horas
         sleep 21600
