@@ -1,14 +1,14 @@
-name: SSH 100% Nativo e Simples
+name: SSH 100% Estável e Sem Frescura
 
 on:
   workflow_dispatch:
 
 jobs:
-  ssh-nativo:
+  ssh-serveo:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Iniciar Servidor SSH e Conectar
+    - name: Configurar SSH e Iniciar Serveo
       run: |
         # 1. Define a senha padrão '1234' para o usuário 'runner'
         echo "runner:1234" | sudo chpasswd
@@ -18,26 +18,19 @@ jobs:
         sudo sed -i 's/PubkeyAuthentication yes/PubkeyAuthentication no/' /etc/ssh/sshd_config
         sudo systemctl restart ssh
 
-        # 3. Cria uma chave SSH interna apenas para o localhost.run aceitar o túnel
-        mkdir -p ~/.ssh
-        ssh-keygen -t rsa -b 2048 -f ~/.ssh/id_rsa -N ""
-
         echo "=================================================================="
         echo "AGUARDE 5 SEGUNDOS PARA GERAR O SEU COMANDO DO TERMUX..."
         echo "=================================================================="
         
-        # 4. Cria o túnel reverso usando a chave gerada
-        ssh -o StrictHostKeyChecking=no -R 80:localhost:22 ssh.localhost.run 2>&1 | tee tunnel.log &
+        # 3. Abre o túnel usando o Serveo na porta 22 (SSH) de forma limpa
+        ssh -o StrictHostKeyChecking=no -R ubuntu-actions:22:localhost:22 serveo.net 2>&1 | tee serveo.log &
         
         sleep 8
-        
-        # 5. Pega o endereço gerado e formata o comando certinho para você
-        ENDERECO=$(grep -oE '[a-zA-Z0-9:-]+\.localhost\.run' tunnel.log | head -n 1)
         
         echo "=================================================================="
         echo "COPIE E COLE O COMANDO ABAIXO NO SEU TERMUX:"
         echo "=================================================================="
-        echo "ssh -p 80 runner@$ENDERECO"
+        echo "ssh runner@serveo.net"
         echo "=================================================================="
         echo "QUANDO PEDIR A SENHA, DIGITE: 1234"
         echo "=================================================================="
