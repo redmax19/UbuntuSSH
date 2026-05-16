@@ -1,40 +1,45 @@
-name: SSH Super Simples (Sem Chaves)
+name: SSH Estável com Senha (Sem Chaves)
 
 on:
   workflow_dispatch:
 
 jobs:
-  ssh-simples:
+  ssh-senha:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Configurar Senha e Iniciar Conexão
+    - name: Configurar Servidor SSH com Senha
       run: |
-        # 1. Define uma senha padrão super simples para a máquina: '1234'
+        # 1. Define a senha padrão '1234' para o usuário 'runner'
         echo "runner:1234" | sudo chpasswd
         
-        # 2. Permite que o SSH aceite conexões por senha comum
+        # 2. Configura o SSH do Ubuntu para aceitar conexão por senha comum
         sudo sed -i 's/PasswordAuthentication no/PasswordAuthentication yes/' /etc/ssh/sshd_config
+        sudo sed -i 's/PubkeyAuthentication yes/PubkeyAuthentication no/' /etc/ssh/sshd_config
         sudo systemctl restart ssh
+
+    - name: Instalar e Ativar Ngrok
+      env:
+        NGROK_AUTH_TOKEN: ${{ secrets.NGROK_AUTH_TOKEN }}
+      run: |
+        # 3. Instala o Ngrok oficial na máquina do GitHub
+        curl -s https://ngrok-agent.s3.amazonaws.com/ngrok.asc | sudo tee /etc/apt/trusted.gpg.d/ngrok.asc >/dev/null
+        echo "deb https://ngrok-agent.s3.amazonaws.com buster main" | sudo tee /etc/apt/sources.list.d/ngrok.list
+        sudo apt-get update && sudo apt-get install ngrok -y
         
-        # 3. Instala e roda o Pagekite para abrir o túnel
-        curl -s https://pagekite.net/pk/ | sudo bash
+        # 4. Conecta o Ngrok usando seu token e abre o túnel na porta 22 (SSH)
+        ngrok config add-authtoken $NGROK_AUTH_TOKEN
+        ngrok tcp 22 --log=stdout > /dev/null &
+        
+        sleep 5
         
         echo "=================================================================="
-        echo "AGUARDE ATÉ 10 SEGUNDOS PARA VER O COMANDO ABAIXO"
+        echo "COPIE E COLE O COMANDO ABAIXO NO SEU TERMUX:"
         echo "=================================================================="
-        
-        # Inicia o túnel na porta 22 (SSH) e exibe o endereço na tela
-        pagekite.py 22 ssh-ubuntu.pagekite.me --clean --logfile=/dev/null &
-        
-        sleep 8
-        echo "=================================================================="
-        echo "COPIE E COLE ESTE COMANDO NO SEU TERMUX:"
-        echo "=================================================================="
-        echo "ssh runner@ssh-ubuntu.pagekite.me"
+        curl -s http://localhost:4040/api/tunnels | jq -r '.tunnels[0].public_url' | sed 's/tcp:\/\//ssh runner@/' | sed 's/:/ -p /2'
         echo "=================================================================="
         echo "QUANDO PEDIR A SENHA, DIGITE: 1234"
         echo "=================================================================="
         
-        # Mantém a máquina ligada por 6 horas
+        # Mantém vivo por 6 horas
         sleep 21600
