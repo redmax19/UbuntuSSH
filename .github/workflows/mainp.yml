@@ -1,36 +1,40 @@
-name: SSH para Termux
+name: SSH Super Simples (Sem Chaves)
 
 on:
-  workflow_dispatch: # Permite que você ative o workflow manualmente pelo botão no GitHub
+  workflow_dispatch:
 
 jobs:
-  ssh-session:
+  ssh-simples:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout do código
-      uses: actions/checkout@v4
-
-    - name: Gerar Chave SSH e Configurar Acesso
+    - name: Configurar Senha e Iniciar Conexão
       run: |
-        # 1. Cria o diretório .ssh se não existir
-        mkdir -p ~/.ssh
+        # 1. Define uma senha padrão super simples para a máquina: '1234'
+        echo "runner:1234" | sudo chpasswd
         
-        # 2. Gera o par de chaves SSH sem senha
-        ssh-keygen -t rsa -b 4000 -f ~/.ssh/id_rsa -N ""
+        # 2. Permite que o SSH aceite conexões por senha comum
+        sudo sed -i 's/PasswordAuthentication no/PasswordAuthentication yes/' /etc/ssh/sshd_config
+        sudo systemctl restart ssh
         
-        # 3. Autoriza a chave pública gerada a se conectar nesta máquina
-        cat ~/.ssh/id_rsa.pub >> ~/.ssh/authorized_keys
-        chmod 600 ~/.ssh/authorized_keys
+        # 3. Instala e roda o Pagekite para abrir o túnel
+        curl -s https://pagekite.net/pk/ | sudo bash
         
-        # 4. Exibe a chave privada no console (Você vai copiar ISSO para o Termux)
         echo "=================================================================="
-        echo "COPIE A CHAVE PRIVADA ABAIXO (INCLUINDO AS LINHAS DE BEGIN E END):"
+        echo "AGUARDE ATÉ 10 SEGUNDOS PARA VER O COMANDO ABAIXO"
         echo "=================================================================="
-        cat ~/.ssh/id_rsa
+        
+        # Inicia o túnel na porta 22 (SSH) e exibe o endereço na tela
+        pagekite.py 22 ssh-ubuntu.pagekite.me --clean --logfile=/dev/null &
+        
+        sleep 8
         echo "=================================================================="
-
-    - name: Iniciar Sessão SSH Interativa (tmate)
-      uses: mxschmitt/action-tmate@v3
-      with:
-        limit-access-to-registered-users: false
+        echo "COPIE E COLE ESTE COMANDO NO SEU TERMUX:"
+        echo "=================================================================="
+        echo "ssh runner@ssh-ubuntu.pagekite.me"
+        echo "=================================================================="
+        echo "QUANDO PEDIR A SENHA, DIGITE: 1234"
+        echo "=================================================================="
+        
+        # Mantém a máquina ligada por 6 horas
+        sleep 21600
