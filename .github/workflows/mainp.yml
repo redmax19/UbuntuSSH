@@ -18,24 +18,26 @@ jobs:
         sudo sed -i 's/PubkeyAuthentication yes/PubkeyAuthentication no/' /etc/ssh/sshd_config
         sudo systemctl restart ssh
 
+        # 3. Cria uma chave SSH interna apenas para o localhost.run aceitar o túnel
+        mkdir -p ~/.ssh
+        ssh-keygen -t rsa -b 2048 -f ~/.ssh/id_rsa -N ""
+
         echo "=================================================================="
         echo "AGUARDE 5 SEGUNDOS PARA GERAR O SEU COMANDO DO TERMUX..."
         echo "=================================================================="
         
-        # 3. Cria o túnel reverso usando o próprio comando SSH do sistema
+        # 4. Cria o túnel reverso usando a chave gerada
         ssh -o StrictHostKeyChecking=no -R 80:localhost:22 ssh.localhost.run 2>&1 | tee tunnel.log &
         
         sleep 8
         
-        # 4. Pega o endereço gerado e formata o comando certinho para você
+        # 5. Pega o endereço gerado e formata o comando certinho para você
         ENDERECO=$(grep -oE '[a-zA-Z0-9:-]+\.localhost\.run' tunnel.log | head -n 1)
-        PORTA=$(echo $ENDERECO | cut -d':' -f2)
-        HOST=$(echo $ENDERECO | cut -d':' -f1)
         
         echo "=================================================================="
         echo "COPIE E COLE O COMANDO ABAIXO NO SEU TERMUX:"
         echo "=================================================================="
-        echo "ssh runner@$HOST -p $PORTA"
+        echo "ssh -p 80 runner@$ENDERECO"
         echo "=================================================================="
         echo "QUANDO PEDIR A SENHA, DIGITE: 1234"
         echo "=================================================================="
