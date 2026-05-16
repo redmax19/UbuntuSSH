@@ -1,45 +1,42 @@
-name: SSH Estável com Senha (Sem Chaves)
+name: SSH Sem Chaves e Sem Cadastro
 
 on:
   workflow_dispatch:
 
 jobs:
-  ssh-senha:
+  ssh-gratis:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Configurar Servidor SSH com Senha
+    - name: Configurar SSH e Criar Túnel Grátis
       run: |
         # 1. Define a senha padrão '1234' para o usuário 'runner'
         echo "runner:1234" | sudo chpasswd
         
-        # 2. Configura o SSH do Ubuntu para aceitar conexão por senha comum
+        # 2. Configura o SSH para aceitar conexão por senha comum
         sudo sed -i 's/PasswordAuthentication no/PasswordAuthentication yes/' /etc/ssh/sshd_config
         sudo sed -i 's/PubkeyAuthentication yes/PubkeyAuthentication no/' /etc/ssh/sshd_config
         sudo systemctl restart ssh
 
-    - name: Instalar e Ativar Ngrok
-      run: |
-        # 3. Instala o Ngrok oficial na máquina do GitHub
-        curl -s https://ngrok-agent.s3.amazonaws.com/ngrok.asc | sudo tee /etc/apt/trusted.gpg.d/ngrok.asc >/dev/null
-        echo "deb https://ngrok-agent.s3.amazonaws.com buster main" | sudo tee /etc/apt/sources.list.d/ngrok.list
-        sudo apt-get update && sudo apt-get install ngrok -y
+        # 3. Baixa o cliente do LocalXpose (alternativa livre ao Ngrok)
+        curl -sL https://localxpose.io/ext/loclx-linux-amd64.zip -o loclx.zip
+        unzip -q loclx.zip
+        chmod +x loclx
         
-        # 4. Conecta o Ngrok usando o seu token do print
-        ngrok config add-authtoken "3DoOMSjoIN9QjrsjcmzOcJ0H5Fh_4rngMUbucDP3fbaShatzt"
+        # 4. Inicia o túnel de graça na porta 22 (SSH)
+        ./loclx tunnel tcp --to 22 > localxpose.log &
         
-        # 5. Abre o túnel na porta 22 (SSH)
-        ngrok tcp 22 --log=stdout > /dev/null &
-        
-        sleep 5
+        # Aguarda o túnel abrir completamente
+        sleep 8
         
         echo "=================================================================="
         echo "COPIE E COLE O COMANDO ABAIXO NO SEU TERMUX:"
         echo "=================================================================="
-        curl -s http://localhost:4040/api/tunnels | jq -r '.tunnels[0].public_url' | sed 's/tcp:\/\//ssh runner@/' | sed 's/:/ -p /2'
+        # Extrai o endereço gerado do arquivo de log
+        grep -oE 'us.loclx.io:[0-9]+|eu.loclx.io:[0-9]+|ap.loclx.io:[0-9]+' localxpose.log | head -n 1 | sed 's/\(.*\):\(.*\)/ssh runner@\1 -p \2/'
         echo "=================================================================="
         echo "QUANDO PEDIR A SENHA, DIGITE: 1234"
         echo "=================================================================="
         
-        # Mantém vivo por 6 horas
+        # Mantém a máquina aberta por 6 horas
         sleep 21600
