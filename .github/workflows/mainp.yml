@@ -1,0 +1,36 @@
+name: SSH para Termux
+
+on:
+  workflow_dispatch: # Permite que você ative o workflow manualmente pelo botão no GitHub
+
+jobs:
+  ssh-session:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout do código
+      uses: actions/checkout@v4
+
+    - name: Gerar Chave SSH e Configurar Acesso
+      run: |
+        # 1. Cria o diretório .ssh se não existir
+        mkdir -p ~/.ssh
+        
+        # 2. Gera o par de chaves SSH sem senha
+        ssh-keygen -t rsa -b 4000 -f ~/.ssh/id_rsa -N ""
+        
+        # 3. Autoriza a chave pública gerada a se conectar nesta máquina
+        cat ~/.ssh/id_rsa.pub >> ~/.ssh/authorized_keys
+        chmod 600 ~/.ssh/authorized_keys
+        
+        # 4. Exibe a chave privada no console (Você vai copiar ISSO para o Termux)
+        echo "=================================================================="
+        echo "COPIE A CHAVE PRIVADA ABAIXO (INCLUINDO AS LINHAS DE BEGIN E END):"
+        echo "=================================================================="
+        cat ~/.ssh/id_rsa
+        echo "=================================================================="
+
+    - name: Iniciar Sessão SSH Interativa (tmate)
+      uses: mxschmitt/action-tmate@v3
+      with:
+        limit-access-to-registered-users: false
