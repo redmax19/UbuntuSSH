@@ -1,4 +1,4 @@
-name: SSH 100% Estável e Sem Frescura
+name: SSH 100% Estável e Sem Frescura (Corrigido)
 
 on:
   workflow_dispatch:
@@ -15,22 +15,25 @@ jobs:
         
         # 2. Configura o SSH do Ubuntu para aceitar conexão por senha comum
         sudo sed -i 's/PasswordAuthentication no/PasswordAuthentication yes/' /etc/ssh/sshd_config
-        sudo sed -i 's/PubkeyAuthentication yes/PubkeyAuthentication no/' /etc/ssh/sshd_config
         sudo systemctl restart ssh
 
         echo "=================================================================="
         echo "AGUARDE 5 SEGUNDOS PARA GERAR O SEU COMANDO DO TERMUX..."
         echo "=================================================================="
         
-        # 3. Abre o túnel usando o Serveo na porta 22 (SSH) de forma limpa
-        ssh -o StrictHostKeyChecking=no -R ubuntu-actions:22:localhost:22 serveo.net 2>&1 | tee serveo.log &
+        # 3. Abre o túnel usando um ALIAS EXCLUSIVO (mudei para redmax-actions)
+        # Também adicionamos um loop para manter o túnel vivo se cair
+        while true; do
+          ssh -o StrictHostKeyChecking=no -o ServerAliveInterval=30 -R redmax-actions:22:localhost:22 serveo.net
+          sleep 5
+        done &
         
-        sleep 8
+        sleep 6
         
         echo "=================================================================="
         echo "COPIE E COLE O COMANDO ABAIXO NO SEU TERMUX:"
         echo "=================================================================="
-        echo "ssh runner@serveo.net"
+        echo "ssh -J serveo.net runner@redmax-actions"
         echo "=================================================================="
         echo "QUANDO PEDIR A SENHA, DIGITE: 1234"
         echo "=================================================================="
