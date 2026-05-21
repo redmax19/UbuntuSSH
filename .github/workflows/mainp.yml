@@ -1,4 +1,4 @@
-name: SSH 100% Estável e Sem Frescura (Corrigido)
+name: SSH
 
 on:
   workflow_dispatch:
